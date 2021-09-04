@@ -3256,6 +3256,7 @@ const sayHello = function () {
 
 const loop = errorMapper(() => {
     sayHello();
+    var room = Game.rooms;
 });
 
 exports.loop = loop;
