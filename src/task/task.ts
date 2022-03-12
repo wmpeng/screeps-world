@@ -10,6 +10,7 @@ interface MyBaseInterface {
 
 export interface Task extends MyBaseInterface {
     priority: Priority;
+    execute: () => boolean;
 }
 
 class MiningTask implements Task {
@@ -17,6 +18,7 @@ class MiningTask implements Task {
     name: string;
     source: Source;
     target: STRUCTURE_SPAWN | STRUCTURE_EXTENSION;
+    execute: () => boolean;
 }
 
 class BuildingTask implements Task {
@@ -24,9 +26,11 @@ class BuildingTask implements Task {
     name: string;
     source: Source;
     target: ConstructionSite;
+    execute: () => boolean;
 }
 
 class DaemonTask implements Task {
     priority: Priority;
     name: string;
+    execute: () => boolean;
 }

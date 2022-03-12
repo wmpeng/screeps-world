@@ -1,14 +1,16 @@
 import { Priority, Task } from "./task";
 
-interface IMyQueue<T> {
+interface MyQueue<T> {
     push(item: T);
 
     front(): T | undefined;
 
     pop(): T | undefined;
+
+    pushFront(item: T);
 }
 
-class MyQueue<T> implements IMyQueue<T> {
+class SimpleQueue<T> implements MyQueue<T> {
     private data: Array<T> = new Array();
 
     push(item: T) {
@@ -22,10 +24,14 @@ class MyQueue<T> implements IMyQueue<T> {
     pop(): T | undefined {
         return this.data.shift();
     }
+
+    pushFront(item: T) {
+        this.data.unshift(item);
+    }
 }
 
-export class TaskQueue implements IMyQueue<Task> {
-    private data: Map<Priority, MyQueue<Task>> = new Map();
+export class TaskQueue implements MyQueue<Task> {
+    private data: Map<Priority, SimpleQueue<Task>> = new Map();
 
     push(task: Task) {
         this.data.get(task.priority).push(task);
@@ -37,5 +43,9 @@ export class TaskQueue implements IMyQueue<Task> {
 
     pop(): Task | undefined {
         return this.data.get(Priority.High)?.pop() || this.data.get(Priority.Medium)?.pop() || this.data.get(Priority.Low)?.pop()
+    }
+
+    pushFront(task: Task) {
+        this.data.get(task.priority).pushFront(task);
     }
 }

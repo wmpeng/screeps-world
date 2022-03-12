@@ -1,9 +1,21 @@
+import { Task } from "./task";
 import { TaskQueue } from "./task-queue";
 
 class TaskConsumer {
-    taskQueue: TaskQueue;
+    private taskQueue: TaskQueue;
 
-    consume() {
-        this.taskQueue
+    consumeOne() {
+        const task: Task = this.taskQueue.pop();
+
+        const result: boolean = task.execute();
+
+        if (!result) {
+            console.log("task execute failed", task);
+            this.taskQueue.push_front(task);
+        }
+    }
+
+    begin() {
+
     }
 }

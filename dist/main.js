@@ -3294,6 +3294,28 @@ const roleBuilder = (creep) => {
     }
 };
 
+var Priority;
+(function (Priority) {
+    Priority[Priority["High"] = 0] = "High";
+    Priority[Priority["Medium"] = 1] = "Medium";
+    Priority[Priority["Low"] = 2] = "Low";
+})(Priority || (Priority = {}));
+
+console.log("begin");
+// for (let priority in Priority) {
+//     console.log(priority)
+// }
+// Object.entries(Priority).forEach(([key, value]) => {
+//     console.log(key, value)
+// });
+//keys
+Object.keys(Priority).forEach(key => {
+    console.log(key);
+});
+// //values
+// Object.values(Priority).forEach(value => {
+//     console.log(value);
+// });
 // Game.spawns['Spawn1'].spawnCreep( [WORK, CARRY, MOVE], 'Harvester1', { memory: { role: 'harvester' } }  );
 // Game.spawns['Spawn1'].spawnCreep( [WORK, CARRY, MOVE], 'Builder1', { memory: { role: 'builder' } } );
 const loop = errorMapper(() => {
