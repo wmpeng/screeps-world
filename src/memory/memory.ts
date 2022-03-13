@@ -1,4 +1,4 @@
-import { ExecutorStructure } from "@/executor/executor";
+import { BaseExecutorStructure } from "./../executor/base_executor";
 
 export class MyMemory implements Memory {
     creeps: { [name: string]: CreepMemory };
@@ -6,29 +6,31 @@ export class MyMemory implements Memory {
     flags: { [name: string]: FlagMemory };
     rooms: { [name: string]: RoomMemory };
     spawns: { [name: string]: SpawnMemory };
-    executors: Array<ExecutorStructure>;
+    executors: Array<BaseExecutorStructure>;
 }
 
 export class MyMemoryApi {
-    private static readonly myMemory = Memory as MyMemory;
+    static getMyMemory(): MyMemory {
+        return Memory as MyMemory
+    }
 
     static _init_executors(): void {
-        if (!("executors" in this.myMemory)) {
-            this.myMemory.executors = new Array<ExecutorStructure>();
+        if (!("executors" in this.getMyMemory())) {
+            this.getMyMemory().executors = new Array<BaseExecutorStructure>();
         }
     }
 
-    static push_executors(executor: ExecutorStructure): void {
+    static push_executors(executor: BaseExecutorStructure): void {
         this._init_executors();
-        this.myMemory.executors.push(executor)
+        this.getMyMemory().executors.push(executor)
     }
 
-    static get_executors(): Array<ExecutorStructure> {
+    static get_executors(): Array<BaseExecutorStructure> {
         this._init_executors();
-        return this.myMemory.executors
+        return this.getMyMemory().executors
     }
 
-    static get_executor_by_name(name: string): ExecutorStructure | void {
+    static get_executor_by_name(name: string): BaseExecutorStructure | void {
         for (var executor of this.get_executors()) {
             if (executor.name == name) {
                 return executor

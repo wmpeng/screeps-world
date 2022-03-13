@@ -1,6 +1,6 @@
-import { ExecutorApi, ExecutorStatus, ExecutorStructure, ExecutorType } from "./executor";
+import { BaseExecutorApi, ExecutorStatus, BaseExecutorStructure, ExecutorType } from "./base_executor";
 
-export class HarvesterStructure extends ExecutorStructure {
+export class HarvesterStructure extends BaseExecutorStructure {
     creepId: Id<Creep>;
 
     targetId: Id<AnyStoreStructure>;
@@ -11,7 +11,7 @@ export class HarvesterStructure extends ExecutorStructure {
     }
 }
 
-export class HarvesterApi extends ExecutorApi {
+export class HarvesterApi extends BaseExecutorApi {
     static begin(executor: HarvesterStructure, target: AnyStoreStructure) {
         executor.targetId = target.id
         super._begin(executor)

@@ -17,7 +17,7 @@ export enum ExecutorType {
 }
 
 
-export class ExecutorStructure {
+export class BaseExecutorStructure {
     name: string;
 
     type: ExecutorType;
@@ -34,34 +34,17 @@ export class ExecutorStructure {
     }
 }
 
-export class ExecutorApi {
-    protected static _begin(executor: ExecutorStructure): void {  // 开始，状态从
+export class BaseExecutorApi {
+    protected static _begin(executor: BaseExecutorStructure): void {  // 开始，状态从
         executor.status = ExecutorStatus.Busy;
     }
 
-    protected static _stop(executor: ExecutorStructure): void {  // 外部打断执行
+    protected static _stop(executor: BaseExecutorStructure): void {  // 外部打断执行
         executor.status = ExecutorStatus.Idle;
     }
 
-    protected static _finished(executor: ExecutorStructure): void {  // 当前任务执行完成
+    protected static _finished(executor: BaseExecutorStructure): void {  // 当前任务执行完成
         executor.status = ExecutorStatus.Idle;
-    }
-
-    static run(executor: ExecutorStructure): void {
-        console.log("ExecutorApi.run()");
-
-        if (executor.status == ExecutorStatus.Idle) {
-            return
-        }
-
-        // TODO 优化
-        if (executor.type == ExecutorType.Harvester) {
-            HarvesterApi.run(executor as HarvesterStructure)
-        } else if (executor.type == ExecutorType.Upgrader) {
-            UpgraderApi.run(executor as UpgraderStructure)
-        } else if (executor.type == ExecutorType.Spawner) {
-            SpawnerApi.run(executor as SpawnerStructure)
-        }
     }
 }
 

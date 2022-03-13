@@ -3246,102 +3246,6 @@ const errorMapper = function (next) {
     }
 };
 
-class MyMemoryApi {
-    static _init_executors() {
-        if (!("executors" in this.myMemory)) {
-            this.myMemory.executors = new Array();
-        }
-    }
-    static push_executors(executor) {
-        this._init_executors();
-        this.myMemory.executors.push(executor);
-    }
-    static get_executors() {
-        this._init_executors();
-        return this.myMemory.executors;
-    }
-    static get_executor_by_name(name) {
-        for (var executor of this.get_executors()) {
-            if (executor.name == name) {
-                return executor;
-            }
-        }
-        return null;
-    }
-}
-MyMemoryApi.myMemory = Memory;
-
-class UpgraderStructure extends ExecutorStructure {
-    constructor(creep, name) {
-        super(ExecutorType.Upgrader, name);
-        this.creepId = creep.id;
-    }
-}
-class UpgraderApi extends ExecutorApi {
-    static begin(executor) {
-        super._begin(executor);
-    }
-    static stop(executor) {
-        super._stop(executor);
-    }
-    static run(executor) {
-        console.log("UpgraderApi.run()");
-        var creep = Game.getObjectById(executor.creepId);
-        if (creep.store[RESOURCE_ENERGY] == 0) { // 移动并采矿
-            var sources = creep.room.find(FIND_SOURCES);
-            if (creep.harvest(sources[0]) == ERR_NOT_IN_RANGE) {
-                creep.moveTo(sources[0]);
-            }
-        }
-        else { // 移动并升级
-            if (creep.upgradeController(creep.room.controller) == ERR_NOT_IN_RANGE) {
-                creep.moveTo(creep.room.controller);
-            }
-        }
-    }
-}
-
-class SpawnerStructure extends ExecutorStructure {
-    constructor(spawn, name) {
-        super(ExecutorType.Spawner, name);
-        this.spawnId = spawn.id;
-    }
-}
-class SpawnerApi extends ExecutorApi {
-    static begin(executor, newExecutorType, newExecutorName) {
-        executor.newExecutorType = newExecutorType;
-        executor.newExecutorName = newExecutorName;
-        super._begin(executor);
-    }
-    static stop(executor) {
-        super._stop(executor);
-    }
-    static run(executor) {
-        console.log("[SpawnerApi] run()");
-        var spawn = Game.getObjectById(executor.spawnId);
-        var errCode = spawn.spawnCreep(this.executorBodyDict[executor.newExecutorType], executor.name);
-        if (errCode != OK) {
-            console.log("[SpawnerApi] errCode:", errCode);
-            return;
-        }
-        var creep = Game.creeps[-1];
-        // TODO 优化
-        if (executor.newExecutorType == ExecutorType.Harvester) {
-            MyMemoryApi.push_executors(new HarvesterStructure(creep, executor.newExecutorName));
-        }
-        else if (executor.newExecutorType == ExecutorType.Upgrader) {
-            MyMemoryApi.push_executors(new UpgraderStructure(creep, executor.newExecutorName));
-        }
-        super._finished(executor);
-    }
-}
-SpawnerApi.executorBodyDict = {
-    [ExecutorType.Harvester]: [WORK, CARRY, MOVE],
-    [ExecutorType.Upgrader]: [WORK, CARRY, MOVE],
-    [ExecutorType.Builder]: [WORK, CARRY, MOVE],
-};
-SpawnerApi.executorBodyDict[ExecutorType.Builder] = [];
-
 var ExecutorStatus;
 (function (ExecutorStatus) {
     // New,  // 新begin之后
@@ -3356,7 +3260,7 @@ var ExecutorType;
     ExecutorType[ExecutorType["Builder"] = 2] = "Builder";
     ExecutorType[ExecutorType["Spawner"] = 3] = "Spawner";
 })(ExecutorType || (ExecutorType = {}));
-class ExecutorStructure {
+class BaseExecutorStructure {
     // readonly executor: Creep | StructureSpawn;
     constructor(type, name) {
         this.status = ExecutorStatus.Idle;
@@ -3365,7 +3269,7 @@ class ExecutorStructure {
         // this.executor = executor
     }
 }
-class ExecutorApi {
+class BaseExecutorApi {
     static _begin(executor) {
         executor.status = ExecutorStatus.Busy;
     }
@@ -3375,32 +3279,16 @@ class ExecutorApi {
     static _finished(executor) {
         executor.status = ExecutorStatus.Idle;
     }
-    static run(executor) {
-        console.log("ExecutorApi.run()");
-        if (executor.status == ExecutorStatus.Idle) {
-            return;
-        }
-        // TODO 优化
-        if (executor.type == ExecutorType.Harvester) {
-            HarvesterApi.run(executor);
-        }
-        else if (executor.type == ExecutorType.Upgrader) {
-            UpgraderApi.run(executor);
-        }
-        else if (executor.type == ExecutorType.Spawner) {
-            SpawnerApi.run(executor);
-        }
-    }
 }
 // export { ExecutorStatus, ExecutorType, ExecutorStructure, ExecutorApi };
 
-class HarvesterStructure extends ExecutorStructure {
+class HarvesterStructure extends BaseExecutorStructure {
     constructor(creep, name) {
         super(ExecutorType.Harvester, name);
         this.creepId = creep.id;
     }
 }
-class HarvesterApi extends ExecutorApi {
+class HarvesterApi$1 extends BaseExecutorApi {
     static begin(executor, target) {
         executor.targetId = target.id;
         super._begin(executor);
@@ -3428,6 +3316,162 @@ class HarvesterApi extends ExecutorApi {
 }
 // export { HarvesterExecutorStructure, HarvesterExecutorApi };
 
+class MyMemoryApi {
+    static getMyMemory() {
+        return Memory;
+    }
+    static _init_executors() {
+        if (!("executors" in this.getMyMemory())) {
+            this.getMyMemory().executors = new Array();
+        }
+    }
+    static push_executors(executor) {
+        this._init_executors();
+        this.getMyMemory().executors.push(executor);
+    }
+    static get_executors() {
+        this._init_executors();
+        return this.getMyMemory().executors;
+    }
+    static get_executor_by_name(name) {
+        for (var executor of this.get_executors()) {
+            if (executor.name == name) {
+                return executor;
+            }
+        }
+        return null;
+    }
+}
+
+class HarvesterApi extends BaseExecutorApi {
+    static begin(executor, target) {
+        executor.targetId = target.id;
+        super._begin(executor);
+    }
+    static stop(executor) {
+        super._stop(executor);
+    }
+    static run(executor) {
+        console.log("HarvesterApi.run()");
+        var creep = Game.getObjectById(executor.creepId);
+        var target = Game.getObjectById(executor.targetId);
+        if (creep.store.getFreeCapacity() > 0) { // 移动并采矿
+            var sources = creep.room.find(FIND_SOURCES);
+            if (creep.harvest(sources[0]) == ERR_NOT_IN_RANGE) {
+                creep.moveTo(sources[0], { visualizePathStyle: { stroke: '#ffaa00' } });
+            }
+        }
+        else { // 移动并传输能量
+            if (target.store.getFreeCapacity(RESOURCE_ENERGY) > 0 &&
+                creep.transfer(target, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
+                creep.moveTo(target, { visualizePathStyle: { stroke: '#ffffff' } });
+            }
+        }
+    }
+}
+// export { HarvesterExecutorStructure, HarvesterExecutorApi };
+
+class UpgraderStructure extends BaseExecutorStructure {
+    constructor(creep, name) {
+        super(ExecutorType.Upgrader, name);
+        this.creepId = creep.id;
+    }
+}
+class UpgraderApi extends BaseExecutorApi {
+    static begin(executor) {
+        super._begin(executor);
+    }
+    static stop(executor) {
+        super._stop(executor);
+    }
+    static run(executor) {
+        console.log("UpgraderApi.run()");
+        var creep = Game.getObjectById(executor.creepId);
+        if (creep.store[RESOURCE_ENERGY] == 0) { // 移动并采矿
+            var sources = creep.room.find(FIND_SOURCES);
+            if (creep.harvest(sources[0]) == ERR_NOT_IN_RANGE) {
+                creep.moveTo(sources[0]);
+            }
+        }
+        else { // 移动并升级
+            if (creep.upgradeController(creep.room.controller) == ERR_NOT_IN_RANGE) {
+                creep.moveTo(creep.room.controller);
+            }
+        }
+    }
+}
+
+class SpawnerStructure extends BaseExecutorStructure {
+    constructor(spawn, name) {
+        super(ExecutorType.Spawner, name);
+        this.waiting_id = false;
+        this.spawnId = spawn.id;
+    }
+}
+class SpawnerApi extends BaseExecutorApi {
+    static begin(spawner, newExecutorType, newExecutorName) {
+        spawner.newExecutorType = newExecutorType;
+        spawner.newExecutorName = newExecutorName;
+        super._begin(spawner);
+    }
+    static stop(spawner) {
+        super._stop(spawner);
+    }
+    static run(spawner) {
+        console.log("[SpawnerApi] run()");
+        if (spawner.waiting_id == false) {
+            var spawn = Game.getObjectById(spawner.spawnId);
+            var errCode = spawn.spawnCreep(this.executorBodyDict[spawner.newExecutorType], spawner.newExecutorName);
+            if (errCode != OK) {
+                console.log("[SpawnerApi] errCode:", errCode);
+                return;
+            }
+            spawner.waiting_id = true;
+        }
+        else if (!Game.creeps[spawner.newExecutorName].id) {
+            return;
+        }
+        else {
+            var newCreep = Game.creeps[spawner.newExecutorName];
+            console.log("[SpawnerApi] new creep:", JSON.stringify(newCreep));
+            console.log("[SpawnerApi] Game.creeps:", JSON.stringify(Game.creeps));
+            // TODO 优化
+            if (spawner.newExecutorType == ExecutorType.Harvester) {
+                MyMemoryApi.push_executors(new HarvesterStructure(newCreep, spawner.newExecutorName));
+            }
+            else if (spawner.newExecutorType == ExecutorType.Upgrader) {
+                MyMemoryApi.push_executors(new UpgraderStructure(newCreep, spawner.newExecutorName));
+            }
+            spawner.waiting_id = false;
+            super._finished(spawner);
+        }
+    }
+}
+SpawnerApi.executorBodyDict = {
+    [ExecutorType.Harvester]: [WORK, CARRY, MOVE],
+    [ExecutorType.Upgrader]: [WORK, CARRY, MOVE],
+    [ExecutorType.Builder]: [WORK, CARRY, MOVE],
+};
+
+class ExecutorCommonApi {
+    static run(executor) {
+        console.log("ExecutorApi.run()");
+        if (executor.status == ExecutorStatus.Idle) {
+            return;
+        }
+        // TODO 优化
+        if (executor.type == ExecutorType.Harvester) {
+            HarvesterApi.run(executor);
+        }
+        else if (executor.type == ExecutorType.Upgrader) {
+            UpgraderApi.run(executor);
+        }
+        else if (executor.type == ExecutorType.Spawner) {
+            SpawnerApi.run(executor);
+        }
+    }
+}
+
 // console.log("begin")
 // for (let priority in Priority) {
 //     console.log(priority)
@@ -3445,22 +3489,29 @@ class HarvesterApi extends ExecutorApi {
 // });
 // Game.spawns['Spawn1'].spawnCreep( [WORK, CARRY, MOVE], 'Harvester1', { memory: { role: 'harvester' } }  );
 // Game.spawns['Spawn1'].spawnCreep( [WORK, CARRY, MOVE], 'Builder1', { memory: { role: 'builder' } } );
-Object.values(Game.spawns)[0];
-// 新增一个Spawner
-MyMemoryApi.push_executors(new SpawnerStructure(Object.values(Game.spawns)[0], "spawner_1"));
-// 生产一个Harvester
-SpawnerApi.begin(MyMemoryApi.get_executor_by_name("spawner_1"), ExecutorType.Harvester, "harvester_1");
-// Harvester采矿
-HarvesterApi.begin(MyMemoryApi.get_executor_by_name("harvester_1"), Object.values(Game.spawns)[0]);
-// 生产一个Upgrader
-SpawnerApi.begin(MyMemoryApi.get_executor_by_name("spawner_1"), ExecutorType.Upgrader, "upgrader_1");
+// var spawn = Object.values(Game.spawns)[0];
+// // 新增一个Spawner
+// MyMemoryApi.push_executors(new SpawnerStructure(Object.values(Game.spawns)[0], "spawner_1"));
+// // 生产一个Harvester
+// SpawnerApi.begin(MyMemoryApi.get_executor_by_name("spawner_1") as SpawnerStructure, ExecutorType.Harvester, "harvester_1");
+// SpawnerApi.begin(MyMemoryApi.get_executor_by_name("spawner_1"), ExecutorType.Harvester, "harvester_1");
+// // Harvester采矿
+// HarvesterApi.begin(MyMemoryApi.get_executor_by_name("harvester_1") as HarvesterStructure, Object.values(Game.spawns)[0]);
+// HarvesterApi.begin(MyMemoryApi.get_executor_by_name("harvester_1"), Object.values(Game.spawns)[0]);
+// // 生产一个Upgrader
+// SpawnerApi.begin(MyMemoryApi.get_executor_by_name("spawner_1") as SpawnerStructure, ExecutorType.Upgrader, "upgrader_1");
+// SpawnerApi.begin(MyMemoryApi.get_executor_by_name("spawner_1"), ExecutorType.Upgrader, "upgrader_1");
+// // Upgrader去工作
+// UpgraderApi.begin(MyMemoryApi.get_executor_by_name("upgrader_1") as UpgraderStructure)
+// UpgraderApi.begin(MyMemoryApi.get_executor_by_name("upgrader_1"))
+console.log("1647180060812");
 // console.log("begin 10")
 // console.log("myMemory", JSON.stringify(myMemory))
 const loop = errorMapper(() => {
     // console.log("begin 20")
     console.log("myMemory.executors.length", MyMemoryApi.get_executors().length);
     for (var executor of MyMemoryApi.get_executors()) {
-        ExecutorApi.run(executor);
+        ExecutorCommonApi.run(executor);
         //     // console.log("executor.run", executor.run)
         //     // console.log("executor", JSON.stringify(executor))
         //     // executor.run();
@@ -3477,10 +3528,14 @@ const loop = errorMapper(() => {
     // }
 });
 // var x = new HarvesterExecutor(new Creep(undefined))
-global.HarvesterExecutorStructure = HarvesterStructure;
-global.HarvesterExecutorApi = HarvesterApi;
-global.ExecutorStructure = ExecutorStructure;
-Game.getObjectById;
+global.BaseExecutorStructure = BaseExecutorStructure;
+global.HarvesterStructure = HarvesterStructure;
+global.SpawnerStructure = SpawnerStructure;
+global.MyMemoryApi = MyMemoryApi;
+global.SpawnerApi = SpawnerApi;
+global.UpgraderApi = UpgraderApi;
+global.HarvesterApi = HarvesterApi$1;
+global.ExecutorType = ExecutorType;
 
 exports.loop = loop;
 //# sourceMappingURL=main.js.map

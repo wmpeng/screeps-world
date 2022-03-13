@@ -1,6 +1,6 @@
-import { ExecutorApi, ExecutorStructure, ExecutorType } from "./executor";
+import { BaseExecutorApi, BaseExecutorStructure, ExecutorType } from "./base_executor";
 
-export class UpgraderStructure extends ExecutorStructure {
+export class UpgraderStructure extends BaseExecutorStructure {
     creepId: Id<Creep>;
 
     constructor(creep: Creep, name: string) {
@@ -9,7 +9,7 @@ export class UpgraderStructure extends ExecutorStructure {
     }
 }
 
-export class UpgraderApi extends ExecutorApi {
+export class UpgraderApi extends BaseExecutorApi {
     static begin(executor: UpgraderStructure) {
         super._begin(executor)
     }
