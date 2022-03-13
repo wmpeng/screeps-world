@@ -1,36 +1,29 @@
-export enum Priority {
-    High,
-    Medium,
-    Low,
+enum TaskStatus {
+    Waiting,
+    Executing,
+    Finished,
+    Deprecated,
 }
 
-interface MyBaseInterface {
-    name: string;
+enum TaskType {
+    Build,
+    Upgrade,
+    Harvest,
 }
 
-export interface Task extends MyBaseInterface {
-    priority: Priority;
-    execute: () => boolean;
-}
+// class Task {
+//     type: TaskType;
+//     otherArgs: any;
+//     status: TaskStatus;
+//     dependencies: Array<Task>;
+// }
 
-class MiningTask implements Task {
-    priority: Priority;
-    name: string;
-    source: Source;
-    target: STRUCTURE_SPAWN | STRUCTURE_EXTENSION;
-    execute: () => boolean;
-}
+// type Priority = number;
 
-class BuildingTask implements Task {
-    priority: Priority;
-    name: string;
-    source: Source;
-    target: ConstructionSite;
-    execute: () => boolean;
-}
-
-class DaemonTask implements Task {
-    priority: Priority;
-    name: string;
-    execute: () => boolean;
-}
+// class HarvestTask implements Task {
+//     priority: Priority;
+//     name: string;
+//     source: Source;
+//     target: STRUCTURE_SPAWN | STRUCTURE_EXTENSION;
+//     execute: () => boolean;
+// }

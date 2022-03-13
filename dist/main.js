@@ -3246,62 +3246,189 @@ const errorMapper = function (next) {
     }
 };
 
-// 采集机器人
-const roleHarvester = (creep) => {
-    if (creep.store.getFreeCapacity() > 0) {
-        var sources = creep.room.find(FIND_SOURCES);
-        if (creep.harvest(sources[0]) == ERR_NOT_IN_RANGE) {
-            creep.moveTo(sources[0], { visualizePathStyle: { stroke: '#ffaa00' } });
+class MyMemoryApi {
+    static _init_executors() {
+        if (!("executors" in this.myMemory)) {
+            this.myMemory.executors = new Array();
         }
     }
-    else {
-        var targets = creep.room.find(FIND_STRUCTURES, {
-            filter: (structure) => {
-                return (structure.structureType == STRUCTURE_EXTENSION || structure.structureType == STRUCTURE_SPAWN) &&
-                    structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
+    static push_executors(executor) {
+        this._init_executors();
+        this.myMemory.executors.push(executor);
+    }
+    static get_executors() {
+        this._init_executors();
+        return this.myMemory.executors;
+    }
+    static get_executor_by_name(name) {
+        for (var executor of this.get_executors()) {
+            if (executor.name == name) {
+                return executor;
             }
-        });
-        if (targets.length > 0) {
-            if (creep.transfer(targets[0], RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
-                creep.moveTo(targets[0], { visualizePathStyle: { stroke: '#ffffff' } });
+        }
+        return null;
+    }
+}
+MyMemoryApi.myMemory = Memory;
+
+class UpgraderStructure extends ExecutorStructure {
+    constructor(creep, name) {
+        super(ExecutorType.Upgrader, name);
+        this.creepId = creep.id;
+    }
+}
+class UpgraderApi extends ExecutorApi {
+    static begin(executor) {
+        super._begin(executor);
+    }
+    static stop(executor) {
+        super._stop(executor);
+    }
+    static run(executor) {
+        console.log("UpgraderApi.run()");
+        var creep = Game.getObjectById(executor.creepId);
+        if (creep.store[RESOURCE_ENERGY] == 0) { // 移动并采矿
+            var sources = creep.room.find(FIND_SOURCES);
+            if (creep.harvest(sources[0]) == ERR_NOT_IN_RANGE) {
+                creep.moveTo(sources[0]);
+            }
+        }
+        else { // 移动并升级
+            if (creep.upgradeController(creep.room.controller) == ERR_NOT_IN_RANGE) {
+                creep.moveTo(creep.room.controller);
             }
         }
     }
+}
+
+class SpawnerStructure extends ExecutorStructure {
+    constructor(spawn, name) {
+        super(ExecutorType.Spawner, name);
+        this.spawnId = spawn.id;
+    }
+}
+class SpawnerApi extends ExecutorApi {
+    static begin(executor, newExecutorType, newExecutorName) {
+        executor.newExecutorType = newExecutorType;
+        executor.newExecutorName = newExecutorName;
+        super._begin(executor);
+    }
+    static stop(executor) {
+        super._stop(executor);
+    }
+    static run(executor) {
+        console.log("[SpawnerApi] run()");
+        var spawn = Game.getObjectById(executor.spawnId);
+        var errCode = spawn.spawnCreep(this.executorBodyDict[executor.newExecutorType], executor.name);
+        if (errCode != OK) {
+            console.log("[SpawnerApi] errCode:", errCode);
+            return;
+        }
+        var creep = Game.creeps[-1];
+        // TODO 优化
+        if (executor.newExecutorType == ExecutorType.Harvester) {
+            MyMemoryApi.push_executors(new HarvesterStructure(creep, executor.newExecutorName));
+        }
+        else if (executor.newExecutorType == ExecutorType.Upgrader) {
+            MyMemoryApi.push_executors(new UpgraderStructure(creep, executor.newExecutorName));
+        }
+        super._finished(executor);
+    }
+}
+SpawnerApi.executorBodyDict = {
+    [ExecutorType.Harvester]: [WORK, CARRY, MOVE],
+    [ExecutorType.Upgrader]: [WORK, CARRY, MOVE],
+    [ExecutorType.Builder]: [WORK, CARRY, MOVE],
 };
+SpawnerApi.executorBodyDict[ExecutorType.Builder] = [];
 
-const roleBuilder = (creep) => {
-    if (creep.memory.building && creep.store[RESOURCE_ENERGY] == 0) {
-        creep.memory.building = false;
-        creep.say('🔄 harvest');
+var ExecutorStatus;
+(function (ExecutorStatus) {
+    // New,  // 新begin之后
+    // Waiting,  // 等待某个资源
+    ExecutorStatus[ExecutorStatus["Busy"] = 0] = "Busy";
+    ExecutorStatus[ExecutorStatus["Idle"] = 1] = "Idle";
+})(ExecutorStatus || (ExecutorStatus = {}));
+var ExecutorType;
+(function (ExecutorType) {
+    ExecutorType[ExecutorType["Harvester"] = 0] = "Harvester";
+    ExecutorType[ExecutorType["Upgrader"] = 1] = "Upgrader";
+    ExecutorType[ExecutorType["Builder"] = 2] = "Builder";
+    ExecutorType[ExecutorType["Spawner"] = 3] = "Spawner";
+})(ExecutorType || (ExecutorType = {}));
+class ExecutorStructure {
+    // readonly executor: Creep | StructureSpawn;
+    constructor(type, name) {
+        this.status = ExecutorStatus.Idle;
+        this.type = type;
+        this.name = name;
+        // this.executor = executor
     }
-    if (!creep.memory.building && creep.store.getFreeCapacity() == 0) {
-        creep.memory.building = true;
-        creep.say('🚧 build');
+}
+class ExecutorApi {
+    static _begin(executor) {
+        executor.status = ExecutorStatus.Busy;
     }
-    if (creep.memory.building) {
-        var targets = creep.room.find(FIND_CONSTRUCTION_SITES);
-        if (targets.length) {
-            if (creep.build(targets[0]) == ERR_NOT_IN_RANGE) {
-                creep.moveTo(targets[0], { visualizePathStyle: { stroke: '#ffffff' } });
+    static _stop(executor) {
+        executor.status = ExecutorStatus.Idle;
+    }
+    static _finished(executor) {
+        executor.status = ExecutorStatus.Idle;
+    }
+    static run(executor) {
+        console.log("ExecutorApi.run()");
+        if (executor.status == ExecutorStatus.Idle) {
+            return;
+        }
+        // TODO 优化
+        if (executor.type == ExecutorType.Harvester) {
+            HarvesterApi.run(executor);
+        }
+        else if (executor.type == ExecutorType.Upgrader) {
+            UpgraderApi.run(executor);
+        }
+        else if (executor.type == ExecutorType.Spawner) {
+            SpawnerApi.run(executor);
+        }
+    }
+}
+// export { ExecutorStatus, ExecutorType, ExecutorStructure, ExecutorApi };
+
+class HarvesterStructure extends ExecutorStructure {
+    constructor(creep, name) {
+        super(ExecutorType.Harvester, name);
+        this.creepId = creep.id;
+    }
+}
+class HarvesterApi extends ExecutorApi {
+    static begin(executor, target) {
+        executor.targetId = target.id;
+        super._begin(executor);
+    }
+    static stop(executor) {
+        super._stop(executor);
+    }
+    static run(executor) {
+        console.log("HarvesterApi.run()");
+        var creep = Game.getObjectById(executor.creepId);
+        var target = Game.getObjectById(executor.targetId);
+        if (creep.store.getFreeCapacity() > 0) { // 移动并采矿
+            var sources = creep.room.find(FIND_SOURCES);
+            if (creep.harvest(sources[0]) == ERR_NOT_IN_RANGE) {
+                creep.moveTo(sources[0], { visualizePathStyle: { stroke: '#ffaa00' } });
+            }
+        }
+        else { // 移动并传输能量
+            if (target.store.getFreeCapacity(RESOURCE_ENERGY) > 0 &&
+                creep.transfer(target, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
+                creep.moveTo(target, { visualizePathStyle: { stroke: '#ffffff' } });
             }
         }
     }
-    else {
-        var sources = creep.room.find(FIND_SOURCES);
-        if (creep.harvest(sources[0]) == ERR_NOT_IN_RANGE) {
-            creep.moveTo(sources[0], { visualizePathStyle: { stroke: '#ffaa00' } });
-        }
-    }
-};
+}
+// export { HarvesterExecutorStructure, HarvesterExecutorApi };
 
-var Priority;
-(function (Priority) {
-    Priority[Priority["High"] = 0] = "High";
-    Priority[Priority["Medium"] = 1] = "Medium";
-    Priority[Priority["Low"] = 2] = "Low";
-})(Priority || (Priority = {}));
-
-console.log("begin");
+// console.log("begin")
 // for (let priority in Priority) {
 //     console.log(priority)
 // }
@@ -3309,26 +3436,51 @@ console.log("begin");
 //     console.log(key, value)
 // });
 //keys
-Object.keys(Priority).forEach(key => {
-    console.log(key);
-});
+// Object.keys(Priority).forEach(key => {
+//     console.log(key);
+// });
 // //values
 // Object.values(Priority).forEach(value => {
 //     console.log(value);
 // });
 // Game.spawns['Spawn1'].spawnCreep( [WORK, CARRY, MOVE], 'Harvester1', { memory: { role: 'harvester' } }  );
 // Game.spawns['Spawn1'].spawnCreep( [WORK, CARRY, MOVE], 'Builder1', { memory: { role: 'builder' } } );
+Object.values(Game.spawns)[0];
+// 新增一个Spawner
+MyMemoryApi.push_executors(new SpawnerStructure(Object.values(Game.spawns)[0], "spawner_1"));
+// 生产一个Harvester
+SpawnerApi.begin(MyMemoryApi.get_executor_by_name("spawner_1"), ExecutorType.Harvester, "harvester_1");
+// Harvester采矿
+HarvesterApi.begin(MyMemoryApi.get_executor_by_name("harvester_1"), Object.values(Game.spawns)[0]);
+// 生产一个Upgrader
+SpawnerApi.begin(MyMemoryApi.get_executor_by_name("spawner_1"), ExecutorType.Upgrader, "upgrader_1");
+// console.log("begin 10")
+// console.log("myMemory", JSON.stringify(myMemory))
 const loop = errorMapper(() => {
-    for (var name in Game.creeps) {
-        var creep = Game.creeps[name];
-        if (creep.memory.role == 'harvester') {
-            roleHarvester(creep);
-        }
-        if (creep.memory.role == 'builder') {
-            roleBuilder(creep);
-        }
+    // console.log("begin 20")
+    console.log("myMemory.executors.length", MyMemoryApi.get_executors().length);
+    for (var executor of MyMemoryApi.get_executors()) {
+        ExecutorApi.run(executor);
+        //     // console.log("executor.run", executor.run)
+        //     // console.log("executor", JSON.stringify(executor))
+        //     // executor.run();
     }
+    // Memory.rooms.executorss = new Array<Executor>();
+    // for (var name in Game.creeps) {
+    //     var creep = Game.creeps[name];
+    //     if (creep.memory.role == 'harvester') {
+    //         roleHarvester(creep);
+    //     }
+    //     if (creep.memory.role == 'builder') {
+    //         roleBuilder(creep);
+    //     }
+    // }
 });
+// var x = new HarvesterExecutor(new Creep(undefined))
+global.HarvesterExecutorStructure = HarvesterStructure;
+global.HarvesterExecutorApi = HarvesterApi;
+global.ExecutorStructure = ExecutorStructure;
+Game.getObjectById;
 
 exports.loop = loop;
 //# sourceMappingURL=main.js.map
